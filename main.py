@@ -1,17 +1,18 @@
-from algorithms.needleman import needleman_func, result_analytics
+from connections.binance import *
+from matplotlib import pyplot as plt
+from algorithms.coint_algs import coint_test, get_coint_params
+from trade.utils import get_pairs_for_buy
+
+from backtest.simple_test import run_backtest
 
 
 if __name__ == '__main__':
-    # seq_a = "ABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBAABCDAABDCADBCDAAAABBCDABCDAADBCDAABBBDCCDABCCBDBA"
-    # seq_b = "DABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABADDABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABADDABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABADDABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABADDABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABADDABCDDDDBCDADCBBDCABDBABCBADDBABBDCBABDBABAD"
-    # # seq_a = 'ABCBDBDBDBDBADAAAA'
-    # # seq_b = 'AABCBDBDBDBDBADBAAA'
-    # score, way_b = needleman_func(seq_a, seq_b)
-    # median_word_len, middle_lag, correct_words_percent = result_analytics(''.join(way_b))
-    # print(''.join(seq_a)),
-    # print(''.join(way_b))
-    
-    from
+    # Todo: run strategy() or run backtest()
+    asyncio.run(set_leverage())
+    orders_list = asyncio.run(get_pairs_for_buy(AsyncClient.KLINE_INTERVAL_5MINUTE))
+
+
+
 
 
 
