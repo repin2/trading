@@ -23,12 +23,10 @@ async def set_leverage(leverage=1):
     # Todo: Optimize async client creation
     client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
     symbol_list = [x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if
-               'BUSD' in x['symbol']
+               'USDT' in x['symbol']
                ]
     tasks = [client.futures_change_leverage(symbol=symbol, leverage=leverage) for symbol in symbol_list]
-    success = False
-    while not success:
-        await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks)
     await client.close_connection()
 
 
