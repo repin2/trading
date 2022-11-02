@@ -22,8 +22,8 @@ async def set_leverage(leverage=1):
     # Todo: Run it when bot's starting
     # Todo: Optimize async client creation
     client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
-    symbol_list = [x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if
-               'USDT' in x['symbol']
+    symbol_list = [
+        x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if 'USDT' in x['symbol']
                ]
     tasks = [client.futures_change_leverage(symbol=symbol, leverage=leverage) for symbol in symbol_list]
     await asyncio.gather(*tasks)
@@ -42,7 +42,8 @@ def _is_spread_under_limit(order_dict: Dict):
     if not bids_list or not asks_list:
         return False
     best_bid, best_ask = float(bids_list[0][0]), float(asks_list[0][0])
-    return (best_ask - best_bid) / best_bid <= MAX_SPREAD_LIMIT
+    current_spread = (best_ask - best_bid) / best_bid
+    return current_spread <= MAX_SPREAD_LIMIT
 
 
 async def _get_hist_klines(pair: str, time_frame, start, stop, client=None):
@@ -83,7 +84,7 @@ async def get_current_pairs(time_frame=TRADING_TIME_FRAME, start: str = "18 Sep,
 
         symbols = [
             x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if
-            'BUSD' in x['symbol']
+            'USDT' in x['symbol']
             and x['contractType']
             and x['contractType'][0] == 'P'
         ]
