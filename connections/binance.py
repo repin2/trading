@@ -7,7 +7,7 @@ import asyncio
 
 from binance.client import AsyncClient
 
-from configs import TESTNET, MAX_SPREAD_LIMIT, TRADING_TIME_FRAME, CURRENCY_LIMIT, ACTUAL_DAYS_NUM, API_KEY, API_SECRET_KEY
+from configs import TESTNET, MAX_SPREAD_LIMIT, TRADING_TIME_FRAME, CURRENCY_LIMIT, ACTUAL_DAYS_NUM, API_KEY, API_SECRET_KEY, BLACK_LIST_TESTNET
 
 api_key = API_KEY
 api_secret = API_SECRET_KEY
@@ -80,7 +80,7 @@ async def _get_all_histories(pairs, time_frame, start, stop, client=None):
 def get_actual_time_frame(now: Optional[datetime] = None, actual_days_num: int = ACTUAL_DAYS_NUM) -> Tuple[str, str]:
     if now is None:
         now = datetime.now()
-    now += timedelta(days=1)
+    # now += timedelta(days=1)
     now_day, now_month, now_year = now.day, month_name[now.month][:3], now.year
     start = now - timedelta(days=actual_days_num)
     start_day, start_month, start_year = start.day, month_name[start.month][:3], start.year
@@ -96,7 +96,10 @@ async def get_current_pairs(time_frame=TRADING_TIME_FRAME, start: str = "18 Sep,
             'USDT' in x['symbol']
             and x['contractType']
             and x['contractType'][0] == 'P'
+            and x['symbol']
         ]
+        if TESTNET:
+            symbols = [x for x in symbols if x not in BLACK_LIST_TESTNET]
 
     symbols = await _symbols_filter_spread(symbols, client=client)
     symbols = symbols[:CURRENCY_LIMIT]  # remove this line if you want to load full data

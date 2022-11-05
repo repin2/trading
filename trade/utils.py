@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import binance.exceptions
 import pandas as pd
 from binance.client import Client, AsyncClient
 from binance.enums import *
@@ -58,7 +59,7 @@ def populate_immediately_sell_pairs():
         for pair in list(want_to_sell_pairs):
             b, synt_middle_price = want_to_sell_pairs[pair]['b'], want_to_buy_pairs[pair]['synt_middle_price']
             symb_1, symb_2 = pair
-            if symbol_price_dict[symb_1] + b * symbol_price_dict[symb_2] >= synt_middle_price:
+            if symbol_price_dict[symb_1] - b * symbol_price_dict[symb_2] >= synt_middle_price:
                 sell_immediately[pair] = want_to_sell_pairs[pair]
                 want_to_sell_pairs.pop(pair)
 
@@ -266,14 +267,14 @@ async def buy_pair(symbol_1, symbol_2, symbol_prices, order_amount, client: Opti
         side=SIDE_BUY,
         type=FUTURE_ORDER_TYPE_MARKET,
         positionSide="LONG",
-        quantity=quote_1
+        quantity=quote_1,
     )
     order_short = client.futures_create_order(
             symbol=symbol_2,
             side=SIDE_SELL,
             type=FUTURE_ORDER_TYPE_MARKET,
             positionSide="SHORT",
-            quantity=quote_2
+            quantity=quote_2,
     )
 
     order_long, order_short = await asyncio.gather(order_long, order_short)
@@ -322,6 +323,15 @@ async def sell_pairs_from_sell_immediately_if_have(client: Optional[AsyncClient]
         print ("After sell", wallet_dict)
 
 
+# async def get_filled_market_oder(symbol, order_id: int, client: Optional[AsyncClient] = None):
+#     order = {}
+#     while order.get('status') != 'FILLED':
+#         order = await client.futures_get_order(symbol=symbol, orderId=order_id)
+#         if order.get('status') != 'FILLED':
+#             asyncio.sleep(0.1)
+#     return order
+
+
 @_close_client_decorator
 async def buy_pairs_if_good_price(client: Optional[AsyncClient] = None):
     if want_to_buy_pairs:
@@ -339,12 +349,22 @@ async def buy_pairs_if_good_price(client: Optional[AsyncClient] = None):
             b, synt_middle_price, sygma = pair_params['b'], pair_params['synt_middle_price'], pair_params['sygma']
             symb_1, symb_2 = pair
             order_amount_coeff = max(wallet_dict['current_capital'] / WALLET_START_PRICE, 1)
-            if price_dict[symb_1] + b * price_dict[symb_2] <= synt_middle_price - sygma * SYGMA_MULTIPLIER:
+            if price_dict[symb_1] - b * price_dict[symb_2] <= synt_middle_price - sygma * SYGMA_MULTIPLIER:
                 buy_tasks.append(buy_pair(symb_1, symb_2, price_dict, MIN_ORDER_AMOUNT * order_amount_coeff, client=client))
         if not buy_tasks:
             return
         results_list = await asyncio.gather(*buy_tasks)
         buy_something = False
+
+        # filled_orders_tasks = []
+        # #ToDO: Kill this lock, add this check and stats to strategiteration
+        # for order_long, order_short in results_list:
+        #     filled_orders_tasks.append(get_filled_market_oder(order_long['symbol'], order_long['orderId'], client=client))
+        #     filled_orders_tasks.append(get_filled_market_oder(order_short['symbol'], order_short['orderId'], client=client))
+        #
+        # results_list = await asyncio.gather(*filled_orders_tasks)
+        # results_list = [(results_list[i], results_list[i + 1]) for i in range(0, len(results_list), 2)]
+
         for order_long, order_short in results_list:
             if order_long is None or order_short is None:
                 continue
@@ -363,7 +383,9 @@ async def buy_pairs_if_good_price(client: Optional[AsyncClient] = None):
                 'bought_time': datetime.now(),
                 'synt_middle_price': pair_params['synt_middle_price'],
                 'b': pair_params['b'],
-                'sygma': pair_params['sygma']
+                'sygma': pair_params['sygma'],
+                'order_buy_id_long': order_long['orderId'],
+                'order_buy_id_short': order_short['orderId']
             }
             want_to_buy_pairs.pop(pair)
             buy_something = True

@@ -1,4 +1,5 @@
 import datetime
+import time
 
 from trade.utils import *
 
@@ -31,6 +32,7 @@ def strategy():
         populate_immediately_sell_pairs()
         asyncio.run(sell_pairs_from_sell_immediately_if_have())
         asyncio.run(buy_pairs_if_good_price())
+        time.sleep(1)
 
 
 
