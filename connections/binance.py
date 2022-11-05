@@ -18,20 +18,32 @@ kline_columns = ['open_time', 'open', 'high', 'low', 'close', 'volume', 'close_t
 dtype = {'open': np.float32}
 
 
-async def set_leverage(leverage=1):
+def _close_client_decorator(func):
+    async def wrapper(*args, **kwargs):
+        if 'client' not in kwargs and not any(isinstance(arg, AsyncClient) for arg in args):
+            kwargs['client'] = AsyncClient(api_key, api_secret, tld='com', testnet=TESTNET)
+            result = await func(*args, **kwargs)
+            await kwargs['client'].close_connection()
+            return result
+        else:
+            return await func(*args, **kwargs)
+    return wrapper
+
+
+@_close_client_decorator
+async def set_leverage(leverage=1, client: Optional[AsyncClient] = None):
     # Todo: Run it when bot's starting
     # Todo: Optimize async client creation
-    client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
     symbol_list = [
         x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if 'USDT' in x['symbol']
                ]
     tasks = [client.futures_change_leverage(symbol=symbol, leverage=leverage) for symbol in symbol_list]
     await asyncio.gather(*tasks)
-    await client.close_connection()
 
 
 # Todo: May be put this functions to binance-utils?
-async def _symbols_filter_spread(symbols: List[str], client: AsyncClient) -> List[str]:
+@_close_client_decorator
+async def _symbols_filter_spread(symbols: List[str], client: AsyncClient=None) -> List[str]:
     tasks = [client.futures_order_book(symbol=symbol, limit=5) for symbol in symbols]
     order_books = await asyncio.gather(*tasks)
     return [symbol for symbol, order_book in zip(symbols, order_books) if _is_spread_under_limit(order_book)]
@@ -46,24 +58,22 @@ def _is_spread_under_limit(order_dict: Dict):
     return current_spread <= MAX_SPREAD_LIMIT
 
 
-async def _get_hist_klines(pair: str, time_frame, start, stop, client=None):
-    created = False
-    if client is None:
-        client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
-        created = True
+@_close_client_decorator
+async def _get_hist_klines(pair: str, time_frame, start, stop, client: Optional[AsyncClient]=None):
     result = []
-    async for kline in await client.futures_historical_klines_generator(pair, time_frame,
-                                                                    start, stop):
-        result.append(kline)
-    if created:
-        await client.close_connection()
+    try:
+        async for kline in await client.futures_historical_klines_generator(pair, time_frame,
+                                                                        start, stop):
+            result.append(kline)
+    except asyncio.exceptions.TimeoutError:
+        return None
     return result
 
 
-async def _get_all_histories(pairs, time_frame, start, stop, client):
+@_close_client_decorator
+async def _get_all_histories(pairs, time_frame, start, stop, client=None):
     history_tasks = [_get_hist_klines(pair, time_frame, start, stop, client=client) for pair in pairs]
-    results =  await asyncio.gather(*history_tasks)
-    await client.close_connection()
+    results = await asyncio.gather(*history_tasks)
     return results
 
 
@@ -77,11 +87,10 @@ def get_actual_time_frame(now: Optional[datetime] = None, actual_days_num: int =
     return f"{start_day} {start_month}, {start_year}", f"{now_day} {now_month}, {now_year}"
 
 
+@_close_client_decorator
 async def get_current_pairs(time_frame=TRADING_TIME_FRAME, start: str = "18 Sep, 2022", stop: str = "26 Sep, 2022",
-                      symbols: Optional[List[str]] = None):
+                      symbols: Optional[List[str]] = None, client: Optional[AsyncClient] = None):
     if symbols is None:
-        client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
-
         symbols = [
             x['symbol'] for x in (await client.futures_exchange_info())['symbols'] if
             'USDT' in x['symbol']
@@ -89,11 +98,11 @@ async def get_current_pairs(time_frame=TRADING_TIME_FRAME, start: str = "18 Sep,
             and x['contractType'][0] == 'P'
         ]
 
-    symbols = await _symbols_filter_spread(symbols, client)
+    symbols = await _symbols_filter_spread(symbols, client=client)
     symbols = symbols[:CURRENCY_LIMIT]  # remove this line if you want to load full data
 
     history_dict = {}
-    histories = await _get_all_histories(symbols, time_frame, start, stop, client)
+    histories = await _get_all_histories(symbols, time_frame, start, stop, client=client)
     for symbol, history in zip(symbols, histories):
         if not history:
             continue
@@ -106,7 +115,6 @@ async def get_current_pairs(time_frame=TRADING_TIME_FRAME, start: str = "18 Sep,
         df.set_index('open_time', drop=False, inplace=True)
         df['price'] = (df['open'] + df['close'] + df['high'] + df['low']) / 4
         history_dict[symbol] = df
-    await client.close_connection()
     return history_dict
 
 
