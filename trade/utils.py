@@ -95,6 +95,7 @@ min_max_prices = _get_min_max_price()
 
 
 async def update_new_cointegrations(time_frame=TRADING_TIME_FRAME):
+    """ Function for periodic calling. Updates dict with curre"""
     cointegrated_pairs = await _get_current_cointegrated_pairs(time_frame)
     update_current_pairs_info(cointegrated_pairs)
 
@@ -161,26 +162,13 @@ async def _get_current_cointegrated_pairs(time_frame=TRADING_TIME_FRAME):
                 'synt_middle_price': params[key][0],
                 'b': params[key][1],
                 'sygma': params[key][2]
-            } for key in pairs_coint_order if pairs[key][0] < pairs[key][2][0] and pairs[key][1] < 0.02
-                                              and params[key][2] > 0
-                                              and params[key][1] > 0
+            } for key in pairs_coint_order if pairs[key][0] < pairs[key][2][0] and pairs[key][1] < 0.02 # results of engle grage test with conf.interval 99%
+                                              and params[key][2] > 0  # b in linear combination price_1 - b* price_2
+                                              and params[key][1] > 0 # sygma
+
     }
     cointegrated_pairs = _filter_multiple_symbols(cointegrated_pairs)
     return cointegrated_pairs
-    # client = AsyncClient(api_key, api_secret, tld="com", testnet=TESTNET)
-    # symbols = set()
-    # for symbol_1, symbol_2 in cointegrated_pairs:
-    #     symbols.add(symbol_1)
-    #     symbols.add(symbol_2)
-    # symbol_prices = await _get_prices(symbols)
-    #
-    # orders_list = []
-    # for pair in cointegrated_pairs:
-    #     order_long, order_short = await buy_pair(pair[0], pair[1], symbol_prices, order_amount=MIN_ORDER_AMOUNT)
-    #     if order_long is not None:
-    #         orders_list.append((order_long, order_short))
-    # await client.close_connection()
-    # return orders_list
 
 
 def _filter_multiple_symbols(cointegrated_pairs: Dict[Tuple[str, str], Dict]) -> Dict[Tuple[str, str], Dict]:
@@ -287,6 +275,7 @@ def _get_total_price_and_comission_order(result_sell: Dict):
     total_comission = sum(float(x['comission']) for x in result_sell['fill'])
     return total_price, total_comission
 
+
 def _get_total_quantity_order(result_sell: Dict):
     total_price = sum(float(x['price']) * float(x['qty']) for x in result_sell['fill'])
     total_comission = sum(float(x['comission']) for x in result_sell['fill'])
@@ -357,7 +346,7 @@ async def buy_pairs_if_good_price(client: Optional[AsyncClient] = None):
         buy_something = False
 
         # filled_orders_tasks = []
-        # #ToDO: Kill this lock, add this check and stats to strategiteration
+        # #ToDO: Kill this lock, add this check and stats to strategy iteration
         # for order_long, order_short in results_list:
         #     filled_orders_tasks.append(get_filled_market_oder(order_long['symbol'], order_long['orderId'], client=client))
         #     filled_orders_tasks.append(get_filled_market_oder(order_short['symbol'], order_short['orderId'], client=client))

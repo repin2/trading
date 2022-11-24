@@ -11,6 +11,9 @@ from configs import ACTUAL_VALUES_NUM, ACTUAL_FRAME
 
 
 def get_coint_pairs_with_params(trading_dict: Dict[str, DataFrame], current_time: Optional[pd.Timestamp] = None):
+    """
+    Function to find pairs with volatility, their linear combination and the same pairs sorted by results of stats test
+    """
     if current_time is None:
         current_time = pd.Timestamp(datetime.now())
     results, params = {}, {}
@@ -39,8 +42,8 @@ def get_coint_pairs_with_params(trading_dict: Dict[str, DataFrame], current_time
             if len(actual_df_currency_1) != len(actual_df_currency_2):
                 continue
             # May be use numba or taichi to improve calculations performance
-            results[(currency_1, currency_2)] = coint_test(actual_df_currency_1, actual_df_currency_2)
-            params[(currency_1, currency_2)] = get_coint_params(actual_df_currency_1, actual_df_currency_2)
+            results[(currency_1, currency_2)] = coint_test(actual_df_currency_1, actual_df_currency_2)   # Engle grage coint test
+            params[(currency_1, currency_2)] = get_coint_params(actual_df_currency_1, actual_df_currency_2)  # Finding linear combination by simple linear regression
 
     if not results:
         return None, None, None
